@@ -2,11 +2,12 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation } from "wouter";
-import { LogOut, ArrowRight, Award, BookOpen, Clock, Users } from "lucide-react";
+import { LogOut, ArrowRight, Award, BookOpen, Clock, Users, Trophy } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import LeaderboardTable from "@/components/admin/LeaderboardTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
+import { useState } from "react";
 
 interface LeaderboardEntry {
   id: number;
@@ -25,6 +26,7 @@ interface LeaderboardEntry {
 export default function HomePage() {
   const { user, logoutMutation } = useAuth();
   const [, navigate] = useLocation();
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   // If not logged in, redirect to auth page
   if (!user) {
@@ -32,11 +34,11 @@ export default function HomePage() {
     return null;
   }
 
-  // Fetch leaderboard data for admin users
+  // Fetch leaderboard data for all users, but only when needed
   const { data: leaderboard, isLoading, error } = useQuery<LeaderboardEntry[]>({
     queryKey: ["/api/leaderboard"],
     refetchInterval: 30000, // Refetch every 30 seconds
-    enabled: user.isAdmin, // Only fetch if user is admin
+    enabled: user.isAdmin || showLeaderboard, // Fetch if admin or if leaderboard is shown
   });
 
   const handleStartTest = () => {
@@ -45,6 +47,10 @@ export default function HomePage() {
 
   const handleLogout = async () => {
     await logoutMutation.mutateAsync();
+  };
+
+  const toggleLeaderboard = () => {
+    setShowLeaderboard(!showLeaderboard);
   };
 
   return (
@@ -75,7 +81,7 @@ export default function HomePage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col items-center text-center mb-12">
+        <div className="flex flex-col items-center text-center mb-8">
           <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl mb-4">
             Welcome to the Scholarship Test Platform
           </h2>
@@ -183,45 +189,95 @@ export default function HomePage() {
         ) : (
           // Student View
           <div className="max-w-4xl mx-auto">
-            <Card>
-              <CardHeader>
-                <CardTitle>Scholarship Test</CardTitle>
-                <CardDescription>
-                  This test consists of multiple-choice questions designed to assess your knowledge.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className="flex items-start space-x-3">
-                    <Clock className="h-6 w-6 text-primary" />
-                    <div>
-                      <h3 className="font-medium">Time Limit</h3>
-                      <p className="text-sm text-gray-500">45 minutes to complete the test</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <BookOpen className="h-6 w-6 text-primary" />
-                    <div>
-                      <h3 className="font-medium">Questions</h3>
-                      <p className="text-sm text-gray-500">10 multiple-choice questions</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <Award className="h-6 w-6 text-primary" />
-                    <div>
-                      <h3 className="font-medium">Scholarship</h3>
-                      <p className="text-sm text-gray-500">Top performers will qualify</p>
-                    </div>
-                  </div>
+            {showLeaderboard ? (
+              // Leaderboard view for regular users
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-bold">Scholarship Test Leaderboard</h3>
+                  <Button variant="outline" onClick={toggleLeaderboard}>
+                    Back to Test Info
+                  </Button>
                 </div>
-              </CardContent>
-              <CardFooter>
-                <Button onClick={handleStartTest} className="w-full">
-                  Start Test
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </CardFooter>
-            </Card>
+                
+                <Card>
+                  <CardContent className="pt-6">
+                    {isLoading ? (
+                      <div className="flex justify-center p-12">
+                        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                      </div>
+                    ) : error ? (
+                      <div className="text-center p-4">
+                        <h3 className="text-lg font-medium text-red-600">Error loading leaderboard</h3>
+                        <p className="text-gray-500 mt-2">{error.message}</p>
+                      </div>
+                    ) : !leaderboard || leaderboard.length === 0 ? (
+                      <div className="text-center p-8">
+                        <h3 className="text-lg font-medium text-gray-900">No test results yet</h3>
+                        <p className="text-gray-500 mt-2">
+                          There are no completed tests to display. Results will appear here when students submit their tests.
+                        </p>
+                      </div>
+                    ) : (
+                      <LeaderboardTable data={leaderboard} />
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              // Test info view for regular users
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Scholarship Test</CardTitle>
+                    <CardDescription>
+                      This test consists of multiple-choice questions designed to assess your knowledge.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid md:grid-cols-3 gap-4">
+                      <div className="flex items-start space-x-3">
+                        <Clock className="h-6 w-6 text-primary" />
+                        <div>
+                          <h3 className="font-medium">Time Limit</h3>
+                          <p className="text-sm text-gray-500">45 minutes to complete the test</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start space-x-3">
+                        <BookOpen className="h-6 w-6 text-primary" />
+                        <div>
+                          <h3 className="font-medium">Questions</h3>
+                          <p className="text-sm text-gray-500">10 multiple-choice questions</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start space-x-3">
+                        <Award className="h-6 w-6 text-primary" />
+                        <div>
+                          <h3 className="font-medium">Scholarship</h3>
+                          <p className="text-sm text-gray-500">Top performers will qualify</p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button onClick={handleStartTest} className="w-full">
+                      Start Test
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </CardFooter>
+                </Card>
+                
+                <div className="flex justify-center">
+                  <Button 
+                    variant="outline" 
+                    onClick={toggleLeaderboard}
+                    className="flex items-center"
+                  >
+                    <Trophy className="mr-2 h-5 w-5 text-amber-500" />
+                    View Leaderboard
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
