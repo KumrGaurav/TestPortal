@@ -21,27 +21,27 @@ export interface IStorage {
   getQuestion(id: number): Promise<Question | undefined>;
   createQuestion(question: InsertQuestion): Promise<Question>;
   
-  // Test result methods
-  createTestResult(result: InsertTestResult): Promise<TestResult>;
-  getTestResults(): Promise<TestResult[]>;
-  getTestResultsByUser(userId: number): Promise<TestResult[]>;
+    // Test result methods
+    createTestResult(result: InsertTestResult): Promise<TestResult>;
+    getTestResults(): Promise<TestResult[]>;
+    getTestResultsByUser(userId: number): Promise<TestResult[]>;
+    
+    // User answers methods
+    createUserAnswer(answer: InsertUserAnswer): Promise<UserAnswer>;
+    getUserAnswers(userId: number): Promise<UserAnswer[]>;
+    
+    // Session store
+    sessionStore: session.Store;
+  }
   
-  // User answers methods
-  createUserAnswer(answer: InsertUserAnswer): Promise<UserAnswer>;
-  getUserAnswers(userId: number): Promise<UserAnswer[]>;
-  
-  // Session store
-  sessionStore: session.SessionStore;
-}
-
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private questions: Map<number, Question>;
-  private testResults: Map<number, TestResult>;
-  private userAnswers: Map<number, UserAnswer>;
-  sessionStore: session.SessionStore;
-  
-  currentUserId: number;
+  export class MemStorage implements IStorage {
+    private users: Map<number, User>;
+    private questions: Map<number, Question>;
+    private testResults: Map<number, TestResult>;
+    private userAnswers: Map<number, UserAnswer>;
+    sessionStore: session.Store;
+    
+    currentUserId: number;
   currentQuestionId: number;
   currentTestResultId: number;
   currentUserAnswerId: number;
@@ -91,7 +91,7 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentUserId++;
-    const user: User = { ...insertUser, id };
+    const user: User = { ...insertUser, id, isAdmin: insertUser.isAdmin ?? false };
     this.users.set(id, user);
     return user;
   }
