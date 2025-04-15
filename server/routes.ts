@@ -6,6 +6,9 @@ import { insertTestResultSchema, insertUserAnswerSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup authentication routes
+  setupAuth(app);
+  
   // Get user test results
   app.get("/api/user-results", async (req, res) => {
     if (!req.isAuthenticated()) {
@@ -34,8 +37,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch user test results" });
     }
   });
-  // Setup authentication routes
-  setupAuth(app);
 
   // Get questions for test
   app.get("/api/questions", async (req, res) => {
