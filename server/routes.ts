@@ -6,6 +6,34 @@ import { insertTestResultSchema, insertUserAnswerSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Get user test results
+  app.get("/api/user-results", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const userId = req.user!.id;
+      const userResults = await storage.getTestResultsByUser(userId);
+      
+      const formattedResults = userResults.map(result => ({
+        id: result.id,
+        score: result.score,
+        totalQuestions: result.totalQuestions,
+        percentage: Math.round((result.score / result.totalQuestions) * 100),
+        timeTaken: result.timeTaken,
+        completedAt: result.completedAt,
+      })).sort((a, b) => {
+        // Sort by most recent first
+        return new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime();
+      });
+      
+      res.json(formattedResults);
+    } catch (error) {
+      console.error("Error fetching user results:", error);
+      res.status(500).json({ message: "Failed to fetch user test results" });
+    }
+  });
   // Setup authentication routes
   setupAuth(app);
 
@@ -97,14 +125,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get leaderboard (only for admins)
+  // Get leaderboard (available to all users)
   app.get("/api/leaderboard", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Not authenticated" });
-    }
-    
-    if (!req.user!.isAdmin) {
-      return res.status(403).json({ message: "Unauthorized: Admin access required" });
     }
     
     try {

@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation } from "wouter";
-import { LogOut, ArrowRight, Award, BookOpen, Clock, Users, Trophy } from "lucide-react";
+import { LogOut, ArrowRight, Award, BookOpen, Clock, Users, Trophy, ChevronRight, Flame } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import LeaderboardTable from "@/components/admin/LeaderboardTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,6 +23,22 @@ interface LeaderboardEntry {
   completedAt: string;
 }
 
+interface UserTestResult {
+  id: number;
+  score: number;
+  totalQuestions: number;
+  percentage: number;
+  timeTaken: number;
+  completedAt: string;
+}
+
+// Helper function to format time
+const formatTime = (seconds: number) => {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}m ${remainingSeconds}s`;
+};
+
 export default function HomePage() {
   const { user, logoutMutation } = useAuth();
   const [, navigate] = useLocation();
@@ -35,10 +51,16 @@ export default function HomePage() {
   }
 
   // Fetch leaderboard data for all users, but only when needed
-  const { data: leaderboard, isLoading, error } = useQuery<LeaderboardEntry[]>({
+  const { data: leaderboard, isLoading: isLoadingLeaderboard, error: leaderboardError } = useQuery<LeaderboardEntry[]>({
     queryKey: ["/api/leaderboard"],
     refetchInterval: 30000, // Refetch every 30 seconds
     enabled: user.isAdmin || showLeaderboard, // Fetch if admin or if leaderboard is shown
+  });
+
+  // Fetch user's test results
+  const { data: userResults, isLoading: isLoadingUserResults, error: userResultsError } = useQuery<UserTestResult[]>({
+    queryKey: ["/api/user-results"],
+    refetchInterval: 30000, // Refetch every 30 seconds
   });
 
   const handleStartTest = () => {
@@ -102,7 +124,7 @@ export default function HomePage() {
                   <div className="flex flex-col items-center">
                     <Users className="h-8 w-8 text-primary mb-2" />
                     <h3 className="text-lg font-medium">Total Participants</h3>
-                    {isLoading ? (
+                    {isLoadingLeaderboard ? (
                       <Loader2 className="h-6 w-6 animate-spin mt-2" />
                     ) : (
                       <p className="text-3xl font-bold mt-2">
@@ -118,7 +140,7 @@ export default function HomePage() {
                   <div className="flex flex-col items-center">
                     <Award className="h-8 w-8 text-primary mb-2" />
                     <h3 className="text-lg font-medium">Average Score</h3>
-                    {isLoading ? (
+                    {isLoadingLeaderboard ? (
                       <Loader2 className="h-6 w-6 animate-spin mt-2" />
                     ) : (
                       <p className="text-3xl font-bold mt-2">
@@ -139,7 +161,7 @@ export default function HomePage() {
                   <div className="flex flex-col items-center">
                     <Clock className="h-8 w-8 text-primary mb-2" />
                     <h3 className="text-lg font-medium">Average Time</h3>
-                    {isLoading ? (
+                    {isLoadingLeaderboard ? (
                       <Loader2 className="h-6 w-6 animate-spin mt-2" />
                     ) : (
                       <p className="text-3xl font-bold mt-2">
@@ -164,14 +186,14 @@ export default function HomePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
+                {isLoadingLeaderboard ? (
                   <div className="flex justify-center p-12">
                     <Loader2 className="h-10 w-10 animate-spin text-primary" />
                   </div>
-                ) : error ? (
+                ) : leaderboardError ? (
                   <div className="text-center p-4">
                     <h3 className="text-lg font-medium text-red-600">Error loading leaderboard</h3>
-                    <p className="text-gray-500 mt-2">{error.message}</p>
+                    <p className="text-gray-500 mt-2">{leaderboardError.message}</p>
                   </div>
                 ) : !leaderboard || leaderboard.length === 0 ? (
                   <div className="text-center p-8">
@@ -189,6 +211,66 @@ export default function HomePage() {
         ) : (
           // Student View
           <div className="max-w-4xl mx-auto">
+            {/* User's Test Results Section */}
+            {userResults && userResults.length > 0 && !showLeaderboard && (
+              <div className="mb-8">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-bold text-gray-900">Your Test Results</h3>
+                </div>
+                <div className="bg-white rounded-lg shadow overflow-hidden">
+                  <div className="p-6 border-b">
+                    <div className="grid md:grid-cols-3 gap-6">
+                      <div className="flex flex-col items-center p-4 bg-gray-50 rounded-lg">
+                        <Flame className="h-8 w-8 text-orange-500 mb-2" />
+                        <h4 className="text-sm font-medium text-gray-500">Best Score</h4>
+                        <p className="text-2xl font-bold text-gray-900">
+                          {Math.max(...userResults.map(r => r.percentage))}%
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-center p-4 bg-gray-50 rounded-lg">
+                        <Clock className="h-8 w-8 text-blue-500 mb-2" />
+                        <h4 className="text-sm font-medium text-gray-500">Last Attempt</h4>
+                        <p className="text-2xl font-bold text-gray-900">
+                          {formatTime(userResults[0].timeTaken)}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-center p-4 bg-gray-50 rounded-lg">
+                        <Award className="h-8 w-8 text-purple-500 mb-2" />
+                        <h4 className="text-sm font-medium text-gray-500">Tests Taken</h4>
+                        <p className="text-2xl font-bold text-gray-900">
+                          {userResults.length}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="px-6 py-4">
+                    <h4 className="text-sm font-medium text-gray-500 mb-2">Recent Test Results</h4>
+                    <div className="space-y-3 max-h-60 overflow-y-auto">
+                      {userResults.slice(0, 5).map((result, index) => (
+                        <div key={result.id} className="flex justify-between items-center p-3 border rounded-md">
+                          <div>
+                            <div className="font-medium">Attempt #{userResults.length - index}</div>
+                            <div className="text-sm text-gray-500">
+                              {new Date(result.completedAt).toLocaleDateString()} - Score: {result.score}/{result.totalQuestions}
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <div className="text-sm font-semibold">{result.percentage}%</div>
+                            <div className="w-16 bg-gray-200 rounded-full h-2">
+                              <div
+                                className="bg-primary h-2 rounded-full"
+                                style={{ width: `${result.percentage}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {showLeaderboard ? (
               // Leaderboard view for regular users
               <div className="space-y-6">
@@ -201,14 +283,14 @@ export default function HomePage() {
                 
                 <Card>
                   <CardContent className="pt-6">
-                    {isLoading ? (
+                    {isLoadingLeaderboard ? (
                       <div className="flex justify-center p-12">
                         <Loader2 className="h-10 w-10 animate-spin text-primary" />
                       </div>
-                    ) : error ? (
+                    ) : leaderboardError ? (
                       <div className="text-center p-4">
                         <h3 className="text-lg font-medium text-red-600">Error loading leaderboard</h3>
-                        <p className="text-gray-500 mt-2">{error.message}</p>
+                        <p className="text-gray-500 mt-2">{leaderboardError.message}</p>
                       </div>
                     ) : !leaderboard || leaderboard.length === 0 ? (
                       <div className="text-center p-8">
@@ -266,7 +348,7 @@ export default function HomePage() {
                   </CardFooter>
                 </Card>
                 
-                <div className="flex justify-center">
+                <div className="flex justify-center space-x-4">
                   <Button 
                     variant="outline" 
                     onClick={toggleLeaderboard}
