@@ -2,7 +2,25 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation } from "wouter";
-import { LogOut, ArrowRight, Award, BookOpen, Clock } from "lucide-react";
+import { LogOut, ArrowRight, Award, BookOpen, Clock, Users } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import LeaderboardTable from "@/components/admin/LeaderboardTable";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2 } from "lucide-react";
+
+interface LeaderboardEntry {
+  id: number;
+  user: {
+    id: number;
+    username: string;
+    email: string;
+  };
+  score: number;
+  totalQuestions: number;
+  percentage: number;
+  timeTaken: number;
+  completedAt: string;
+}
 
 export default function HomePage() {
   const { user, logoutMutation } = useAuth();
@@ -14,12 +32,15 @@ export default function HomePage() {
     return null;
   }
 
+  // Fetch leaderboard data for admin users
+  const { data: leaderboard, isLoading, error } = useQuery<LeaderboardEntry[]>({
+    queryKey: ["/api/leaderboard"],
+    refetchInterval: 30000, // Refetch every 30 seconds
+    enabled: user.isAdmin, // Only fetch if user is admin
+  });
+
   const handleStartTest = () => {
     navigate("/test");
-  };
-
-  const handleGoToAdmin = () => {
-    navigate("/admin");
   };
 
   const handleLogout = async () => {
@@ -59,27 +80,109 @@ export default function HomePage() {
             Welcome to the Scholarship Test Platform
           </h2>
           <p className="mt-3 max-w-2xl text-xl text-gray-500 sm:mt-4">
-            Take the test to qualify for our prestigious scholarship program.
+            {user.isAdmin 
+              ? "Monitor test performance and manage scholarship candidates."
+              : "Take the test to qualify for our prestigious scholarship program."
+            }
           </p>
         </div>
 
-        <div className="max-w-4xl mx-auto">
-          {user.isAdmin ? (
-            <Card className="mb-8">
+        {user.isAdmin ? (
+          // Admin View
+          <div className="w-full">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+              <Card className="bg-white">
+                <CardContent className="pt-6">
+                  <div className="flex flex-col items-center">
+                    <Users className="h-8 w-8 text-primary mb-2" />
+                    <h3 className="text-lg font-medium">Total Participants</h3>
+                    {isLoading ? (
+                      <Loader2 className="h-6 w-6 animate-spin mt-2" />
+                    ) : (
+                      <p className="text-3xl font-bold mt-2">
+                        {leaderboard?.length || 0}
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-white">
+                <CardContent className="pt-6">
+                  <div className="flex flex-col items-center">
+                    <Award className="h-8 w-8 text-primary mb-2" />
+                    <h3 className="text-lg font-medium">Average Score</h3>
+                    {isLoading ? (
+                      <Loader2 className="h-6 w-6 animate-spin mt-2" />
+                    ) : (
+                      <p className="text-3xl font-bold mt-2">
+                        {leaderboard && leaderboard.length > 0
+                          ? Math.round(
+                              leaderboard.reduce((acc, entry) => acc + entry.percentage, 0) / 
+                              leaderboard.length
+                            )
+                          : 0}%
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-white">
+                <CardContent className="pt-6">
+                  <div className="flex flex-col items-center">
+                    <Clock className="h-8 w-8 text-primary mb-2" />
+                    <h3 className="text-lg font-medium">Average Time</h3>
+                    {isLoading ? (
+                      <Loader2 className="h-6 w-6 animate-spin mt-2" />
+                    ) : (
+                      <p className="text-3xl font-bold mt-2">
+                        {leaderboard && leaderboard.length > 0
+                          ? Math.round(
+                              leaderboard.reduce((acc, entry) => acc + entry.timeTaken, 0) / 
+                              leaderboard.length / 60
+                            )
+                          : 0} min
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            <Card>
               <CardHeader>
-                <CardTitle>Administrator Dashboard</CardTitle>
+                <CardTitle>Scholarship Test Leaderboard</CardTitle>
                 <CardDescription>
-                  View test results and manage the scholarship test platform.
+                  Performance leaderboard of all participants, ranked by score and time taken.
                 </CardDescription>
               </CardHeader>
-              <CardFooter>
-                <Button onClick={handleGoToAdmin} className="w-full">
-                  Go to Admin Dashboard
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </CardFooter>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex justify-center p-12">
+                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                  </div>
+                ) : error ? (
+                  <div className="text-center p-4">
+                    <h3 className="text-lg font-medium text-red-600">Error loading leaderboard</h3>
+                    <p className="text-gray-500 mt-2">{error.message}</p>
+                  </div>
+                ) : !leaderboard || leaderboard.length === 0 ? (
+                  <div className="text-center p-8">
+                    <h3 className="text-lg font-medium text-gray-900">No test results yet</h3>
+                    <p className="text-gray-500 mt-2">
+                      There are no completed tests to display. Results will appear here when students submit their tests.
+                    </p>
+                  </div>
+                ) : (
+                  <LeaderboardTable data={leaderboard} />
+                )}
+              </CardContent>
             </Card>
-          ) : (
+          </div>
+        ) : (
+          // Student View
+          <div className="max-w-4xl mx-auto">
             <Card>
               <CardHeader>
                 <CardTitle>Scholarship Test</CardTitle>
@@ -119,8 +222,8 @@ export default function HomePage() {
                 </Button>
               </CardFooter>
             </Card>
-          )}
-        </div>
+          </div>
+        )}
       </main>
     </div>
   );
